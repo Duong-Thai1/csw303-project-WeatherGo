@@ -1,0 +1,1608 @@
+<!DOCTYPE html>
+<html lang="vi" translate="no">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SmartRoute Vietnam — Dẫn Đường Thời Tiết Thông Minh</title>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=JetBrains+Mono:wght@500;600&display=swap">
+
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   SMARTROUTE VIETNAM — Clean Light Theme
+   Tông màu: Trắng / Slate / Xanh dương
+═══════════════════════════════════════════════════════════════ */
+:root {
+  --bg:        #f8fafc;
+  --bg2:       #ffffff;
+  --surf:      #ffffff;
+  --surf2:     #f1f5f9;
+  --surf3:     #e2e8f0;
+  --brd:       #e2e8f0;
+  --brd2:      #cbd5e1;
+  --txt:       #0f172a;
+  --muted:     #475569;
+  --dim:       #64748b;
+  --jade:      #2563eb; /* Sử dụng Xanh dương làm màu chủ đạo thay vì Xanh ngọc */
+  --jade2:     #3b82f6;
+  --jade-g:    rgba(37,99,235,.15);
+  --red:       #ef4444;
+  --red-g:     rgba(239,68,68,.15);
+  --gold:      #f59e0b;
+  --sky:       #0ea5e9;
+  --warn:      #f97316;
+  --danger:    #ef4444;
+  --ok:        #10b981;
+  --side:      360px;
+  --hdr:       54px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:'Rajdhani',system-ui,sans-serif;background:var(--bg);color:var(--txt);overflow:hidden;-webkit-font-smoothing:antialiased}
+
+@keyframes fadeUp  {from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes fadeIn  {from{opacity:0}to{opacity:1}}
+@keyframes spin    {to{transform:rotate(360deg)}}
+@keyframes pulse   {0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes scanLn  {0%{top:0}100%{top:100%}}
+@keyframes glowRng {0%,100%{box-shadow:0 0 0 0 var(--jade-g)}50%{box-shadow:0 0 0 8px rgba(37,99,235,.05)}}
+@keyframes dotBounce{0%,80%,100%{transform:scale(0)}40%{transform:scale(1)}}
+@keyframes shimmer {0%{background-position:-200% 0}100%{background-position:200% 0}}
+
+.hdr{height:var(--hdr);background:var(--surf);border-bottom:1px solid var(--brd2);display:flex;align-items:center;padding:0 18px;gap:16px;position:relative;z-index:1100;flex-shrink:0;}
+.hdr::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--jade) 30%,var(--jade) 70%,transparent);opacity:.2}
+.logo{display:flex;align-items:center;gap:10px;white-space:nowrap}
+.logo-mark{width:34px;height:34px;background:linear-gradient(135deg,var(--jade),var(--jade2));border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:17px;box-shadow:0 0 14px var(--jade-g);flex-shrink:0;color:#fff}
+.logo-txt{font-size:16px;font-weight:700;letter-spacing:.02em;line-height:1.1}
+.logo-txt b{color:var(--jade)}
+.logo-sub{font-size:9px;color:var(--dim);letter-spacing:.14em;text-transform:uppercase;margin-top:2px}
+.nav-tabs{display:flex;background:var(--surf2);border:1px solid var(--brd2);border-radius:8px;padding:3px;gap:2px}
+.nav-btn{padding:5px 14px;border:none;border-radius:6px;background:transparent;color:var(--dim);cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;letter-spacing:.04em;transition:all .15s;white-space:nowrap}
+.nav-btn.active{background:var(--bg2);color:var(--jade);box-shadow:0 1px 4px rgba(0,0,0,.1)}
+.nav-btn:hover:not(.active){color:var(--txt)}
+.hdr-status{margin-left:auto;display:flex;align-items:center;gap:7px;font-size:10px;color:var(--dim);font-weight:600}
+.hdr-dot{width:6px;height:6px;border-radius:50%;background:var(--ok);animation:pulse 2.5s infinite}
+
+.layout{display:flex;height:calc(100vh - var(--hdr));overflow:hidden}
+.sidebar{width:var(--side);background:var(--surf);border-right:1px solid var(--brd2);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;position:relative;z-index:100;box-shadow:2px 0 10px rgba(0,0,0,.03)}
+.sb-scroll{flex:1;overflow-y:auto;padding:14px;position:relative;z-index:1}
+.sb-scroll::-webkit-scrollbar{width:4px}
+.sb-scroll::-webkit-scrollbar-thumb{background:var(--brd2);border-radius:2px}
+
+.s-lbl{font-size:10px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.14em;margin:14px 0 7px;display:flex;align-items:center;gap:7px}
+.s-lbl:first-child{margin-top:0}
+.s-lbl::after{content:'';flex:1;height:1px;background:var(--brd2)}
+.form-grp{margin-bottom:10px}
+.form-lbl{display:block;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin-bottom:5px}
+.form-ctrl{width:100%;padding:8px 11px;background:var(--bg);border:1px solid var(--brd2);border-radius:7px;color:var(--txt);font-family:inherit;font-size:14px;font-weight:600;transition:border-color .15s,box-shadow .15s;outline:none}
+.form-ctrl:focus{border-color:var(--jade);box-shadow:0 0 0 3px var(--jade-g);background:var(--bg2)}
+select.form-ctrl{cursor:pointer;}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:9px 16px;border:none;border-radius:8px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;transition:all .18s;letter-spacing:.02em;width:100%}
+.btn:disabled{opacity:.45;cursor:not-allowed;pointer-events:none}
+.btn-jade{background:var(--jade);color:#ffffff;box-shadow:0 2px 10px var(--jade-g);margin-bottom:2px}
+.btn-jade:hover{background:var(--jade2);transform:translateY(-1px);box-shadow:0 4px 15px var(--jade-g)}
+.btn-ghost{background:var(--surf2);border:1px dashed var(--brd2);color:var(--muted);margin-bottom:10px}
+.btn-ghost:hover{border-color:var(--jade);color:var(--jade);background:var(--jade-g)}
+.btn-alt{background:var(--gold);color:#fff;box-shadow:0 2px 10px rgba(240,167,48,.2);margin-top:8px}
+.btn-alt:hover{filter:brightness(1.05);transform:translateY(-1px)}
+
+.info-box{padding:11px 13px;border-radius:9px;font-size:13px;font-weight:600;line-height:1.55;margin-bottom:10px}
+.info-box.ok  {background:#ecfdf5;border:1px solid #a7f3d0;color:#047857}
+.info-box.warn{background:#fffbeb;border:1px solid #fde68a;color:#b45309}
+.info-box.bad {background:#fef2f2;border:1px solid #fecaca;color:#b91c1c}
+.info-box.info{background:var(--surf2);border:1px solid var(--brd2);color:var(--muted)}
+
+.hint-box{padding:30px 16px;text-align:center;color:var(--muted);animation:fadeIn .4s}
+.hint-box .hi{font-size:44px;display:block;margin-bottom:12px}
+.hint-box p{font-size:14px;font-weight:600;line-height:1.6;color:var(--txt);max-width:240px;margin:0 auto}
+.hint-box small{font-size:11px;color:var(--dim);font-weight:600;display:block;margin-top:8px}
+
+.stat-row{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px}
+.stat-cell{background:var(--bg);padding:8px;border-radius:7px;text-align:center;border:1px solid var(--brd2)}
+.stat-cell .lbl{font-size:9px;color:var(--dim);font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px}
+.stat-cell .val{font-size:15px;font-weight:700;color:var(--txt);font-family:'JetBrains Mono',monospace}
+
+.alert-item{display:flex;gap:8px;align-items:flex-start;padding:9px 10px;border-radius:7px;margin-bottom:6px;font-size:13px;font-weight:600;animation:fadeUp .2s ease}
+.alert-item.danger{background:#fef2f2;border:1px solid #fecaca;color:#b91c1c}
+.alert-item.warn{background:#fffbeb;border:1px solid #fde68a;color:#b45309}
+.alert-dismiss{background:none;border:none;color:inherit;opacity:0.6;cursor:pointer;font-size:14px;padding:0;line-height:1;flex-shrink:0;margin-left:auto;font-family:inherit}
+.alert-dismiss:hover{opacity:1}
+
+.route-card{padding:10px 11px;border-radius:9px;margin-bottom:7px;border:1px solid var(--brd2)}
+.route-card.primary{background:#eff6ff;border-color:var(--jade)}
+.route-card.alt{background:#fffbeb;border-color:var(--gold)}
+.rc-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px}
+.rc-label{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+.rc-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:100px;background:#ffffff}
+
+.chip{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:100px;font-size:11px;font-weight:700}
+.chip-jade{background:var(--jade-g);color:var(--jade)}
+.chip-gold{background:rgba(240,167,48,.15);color:var(--gold)}
+.chip-sky {background:rgba(56,178,240,.15);color:var(--sky)}
+
+.dest-item{background:var(--bg);border:1px solid var(--brd2);border-radius:9px;padding:11px 12px;margin-bottom:8px;animation:fadeUp .2s ease}
+.dest-head{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+.dest-num{width:22px;height:22px;background:var(--surf3);color:var(--txt);border-radius:50%;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.dest-lbl{font-size:13px;font-weight:700;color:var(--txt);flex:1}
+.dest-del{background:none;border:none;color:var(--dim);cursor:pointer;font-size:14px;padding:2px 5px;border-radius:5px;transition:all .15s;line-height:1;font-family:inherit}
+.dest-del:hover{color:var(--danger);background:#fef2f2}
+
+.loader-row{display:flex;align-items:center;justify-content:center;gap:10px;padding:22px;color:var(--muted);font-size:14px;font-weight:600}
+.spinner{width:16px;height:16px;border:2px solid var(--brd2);border-top-color:var(--jade);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+.dots{display:flex;gap:5px}
+.dots span{width:7px;height:7px;border-radius:50%;background:var(--jade);animation:dotBounce 1.4s ease-in-out infinite}
+.dots span:nth-child(2){animation-delay:.18s}
+.dots span:nth-child(3){animation-delay:.36s}
+
+.err-box{background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;border-radius:8px;padding:9px 12px;font-size:13px;font-weight:600;margin-top:8px;display:flex;gap:7px}
+.skel{background:linear-gradient(90deg,var(--surf2) 25%,var(--surf3) 50%,var(--surf2) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:6px}
+
+.map-wrap{flex:1;position:relative;overflow:hidden}
+#map{width:100%;height:100%;background:#e2e8f0}
+
+.map-overlay{position:absolute;top:10px;right:10px;z-index:600;background:rgba(255,255,255,.94);border:1px solid var(--brd2);border-radius:11px;padding:12px 16px;backdrop-filter:blur(8px);min-width:180px;animation:fadeIn .3s ease;box-shadow:0 4px 15px rgba(0,0,0,.05)}
+.mo-title{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.14em;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.mo-title::before{content:'';width:8px;height:8px;border-radius:50%;background:var(--jade);animation:pulse 2s infinite}
+
+.map-loader{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border:1px solid var(--brd2);border-radius:12px;padding:16px 24px;display:flex;align-items:center;gap:10px;font-size:14px;font-weight:700;z-index:700;box-shadow:0 10px 30px rgba(0,0,0,.1)}
+
+.time-bar{position:absolute;bottom:0;left:0;right:0;z-index:600;background:rgba(255,255,255,.95);border-top:1px solid var(--brd2);padding:10px 24px 10px;backdrop-filter:blur(10px);transform:translateY(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);box-shadow:0 -4px 15px rgba(0,0,0,.03)}
+.time-bar.visible{transform:translateY(0)}
+.tb-row{display:flex;align-items:center;gap:16px;margin-bottom:5px}
+.tb-time{min-width:65px;flex-shrink:0}
+.tb-time .lbl{font-size:9px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.12em}
+.tb-time .val{font-size:18px;font-weight:700;color:var(--jade);font-family:'JetBrains Mono',monospace}
+.tb-wx{min-width:140px;text-align:right;flex-shrink:0}
+.tb-wx .icon{font-size:22px;line-height:1}
+.tb-wx .cond{font-size:12px;font-weight:700;margin-top:2px}
+.tb-status{display:flex;gap:12px;font-size:11px;font-weight:600;color:var(--dim);font-family:'JetBrains Mono',monospace}
+.tb-tick{display:flex;justify-content:space-between;font-size:9px;font-weight:600;color:var(--dim);font-family:'JetBrains Mono',monospace;margin-top:4px;padding:0 76px 0 81px}
+
+input[type=range]{-webkit-appearance:none;appearance:none;flex:1;height:6px;border-radius:3px;cursor:pointer;outline:none;border:none;background:var(--surf3)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:var(--jade);border:3px solid var(--bg2);box-shadow:0 0 8px rgba(0,0,0,.15);cursor:pointer}
+input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:var(--jade);border:3px solid var(--bg2);cursor:pointer}
+
+.welcome{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;z-index:10;animation:fadeIn .5s ease;background:rgba(255,255,255,.8);padding:30px;border-radius:16px;backdrop-filter:blur(5px);border:1px solid var(--brd2)}
+.welcome .icon{font-size:60px;display:block;margin-bottom:16px;}
+.welcome h2{font-size:24px;font-weight:800;letter-spacing:.05em;color:var(--txt);margin-bottom:6px}
+.welcome p{font-size:13px;color:var(--dim);font-weight:600;font-family:'JetBrains Mono',monospace}
+.welcome .tags{display:flex;gap:6px;justify-content:center;margin-top:16px;flex-wrap:wrap}
+.tag{padding:4px 12px;border-radius:100px;background:var(--surf2);border:1px solid var(--brd2);font-size:10px;color:var(--dim);font-weight:700;text-transform:uppercase}
+
+.leaflet-container{background:#e2e8f0 !important;font-family:'Rajdhani',sans-serif !important}
+.leaflet-control-zoom a{background:var(--surf) !important;color:var(--jade) !important;border-color:var(--brd2) !important;font-weight:700 !important}
+.leaflet-control-zoom a:hover{background:var(--surf2) !important}
+.leaflet-control-attribution{background:rgba(255,255,255,.85) !important;color:var(--dim) !important;font-size:10px !important;font-weight:600 !important}
+.leaflet-popup-content-wrapper{background:var(--surf) !important;border:1px solid var(--brd2) !important;border-radius:12px !important;color:var(--txt) !important;box-shadow:0 8px 25px rgba(0,0,0,.1) !important}
+.leaflet-popup-tip{background:var(--surf) !important}
+.leaflet-popup-content{margin:12px 14px !important;font-family:'Rajdhani',sans-serif !important}
+.leaflet-tooltip{background:rgba(255,255,255,.98) !important;border:1px solid var(--brd2) !important;color:var(--txt) !important;font-family:'Rajdhani',sans-serif !important;font-size:13px !important;font-weight:700 !important;border-radius:6px !important;padding:5px 12px !important;box-shadow:0 4px 10px rgba(0,0,0,.08)!important}
+.leaflet-tooltip-top::before{border-top-color:var(--brd2) !important}
+.hidden{display:none!important}
+</style>
+</head>
+
+<body>
+
+<header class="hdr">
+  <div class="logo">
+    <div class="logo-mark">🗺️</div>
+    <div>
+      <div class="logo-txt">Smart<b>Route</b> Vietnam</div>
+      <div class="logo-sub">Dẫn Đường Thời Tiết Thông Minh</div>
+    </div>
+  </div>
+
+  <div class="nav-tabs">
+    <button class="nav-btn active" id="tab-map"     onclick="switchTab('map')">🌏 Bản Đồ</button>
+    <button class="nav-btn"        id="tab-planner" onclick="switchTab('planner')">✈️ Lập Kế Hoạch</button>
+  </div>
+
+  <div class="hdr-status">
+    <div class="hdr-dot"></div>
+    <span id="api-status">OSRM · Open-Meteo · Carto Voyager</span>
+  </div>
+</header>
+
+<div class="layout">
+
+  <aside class="sidebar">
+
+    <div class="sb-scroll" id="sb-map">
+      <div id="map-hint" class="hint-box">
+        <span class="hi">🇻🇳</span>
+        <p>Nhấn vào tỉnh / thành phố để xem <strong>dự báo thời tiết 7 ngày</strong></p>
+        <small>Hover để xem tên · Click để xem thời tiết</small>
+      </div>
+      <div id="map-wx" class="hidden"></div>
+    </div>
+
+    <div class="sb-scroll hidden" id="sb-planner">
+
+      <div class="s-lbl">📍 Điểm xuất phát</div>
+      <div class="form-grp">
+        <label class="form-lbl">Địa điểm bắt đầu</label>
+        <input type="text" class="form-ctrl" id="pl-from" placeholder="Ví dụ: Hà Nội" value="Hà Nội">
+      </div>
+      <div class="grid-2">
+        <div class="form-grp">
+          <label class="form-lbl">📅 Ngày khởi hành</label>
+          <input type="date" class="form-ctrl" id="pl-date">
+        </div>
+        <div class="form-grp">
+          <label class="form-lbl">⏰ Giờ xuất phát</label>
+          <select class="form-ctrl" id="pl-hour">
+            <option value="6">06:00</option>
+            <option value="7">07:00</option>
+            <option value="8" selected>08:00</option>
+            <option value="9">09:00</option>
+            <option value="10">10:00</option>
+            <option value="12">12:00</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="s-lbl">🏁 Các điểm đến</div>
+      <div id="dest-list"></div>
+      <button class="btn btn-ghost" onclick="addDest()">＋ Thêm điểm đến</button>
+
+      <button class="btn btn-jade" id="plan-btn" onclick="analyzeTrip()">
+        🚀 Phân Tích Hành Trình
+      </button>
+      <div id="pl-err" class="hidden"></div>
+
+      <div id="route-result" class="hidden">
+        <div class="s-lbl">📊 Kết quả phân tích</div>
+        <div id="route-stats"></div>
+        <div id="alert-list"></div>
+        <div id="route-cards"></div>
+        <button class="btn btn-alt hidden" id="btn-alt" onclick="toggleAlt()">🔀 Xem tuyến đường an toàn</button>
+      </div>
+    </div>
+  </aside>
+
+  <div class="map-wrap">
+    <div id="map"></div>
+
+    <div class="map-overlay hidden" id="map-overlay">
+      <div class="mo-title">Hành trình đang xem</div>
+      <div id="overlay-content" style="font-size:12px;color:var(--txt);font-weight:600"></div>
+    </div>
+
+    <div class="map-loader hidden" id="map-loader">
+      <div class="spinner"></div>
+      <span id="loader-txt">Đang tải...</span>
+    </div>
+
+    <div class="welcome" id="welcome">
+      <span class="icon">🗺️</span>
+      <h2>SMARTROUTE VIETNAM</h2>
+      <p>Nhập điểm đầu và điểm cuối để bắt đầu</p>
+      <div class="tags">
+        <span class="tag">OSRM Routing</span>
+        <span class="tag">Open-Meteo</span>
+        <span class="tag">Anomaly Alert</span>
+        <span class="tag">Alt Route</span>
+      </div>
+    </div>
+
+    <div class="time-bar" id="time-bar">
+      <div class="tb-row">
+        <div class="tb-time">
+          <div class="lbl">GIỜ</div>
+          <div class="val" id="tb-val">08:00</div>
+        </div>
+        <input type="range" id="hour-slider" min="0" max="23" value="8"
+               style="background:linear-gradient(to right,var(--jade) 34.8%,var(--brd2) 34.8%)">
+        <div class="tb-wx" id="tb-wx">
+          <div class="icon"></div><div class="cond"></div>
+        </div>
+      </div>
+      <div class="tb-tick" id="tb-tick"></div>
+      <div class="tb-status" id="tb-status"></div>
+    </div>
+  </div>
+
+</div><script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+
+<script>
+/* ════════════════════════════════════════════════════════════════════════════
+   SMARTROUTE VIETNAM — Vanilla JS  (Single File)
+   ────────────────────────────────────────────────────────────────────────────
+   §1  Constants & WMO lookup
+   §2  Utility functions
+   §3  Open-Meteo weather API (free, no key)
+   §4  OSRM routing API (free, no key)
+   §5  Nominatim geocoding (free, no key)
+   §6  Map initialisation & province GeoJSON
+   §7  Module A — API chaining (route → waypoints → weather)
+   §8  Module B — Time-slider reactive marker update
+   §9  Module C — Anomaly detection
+   §10 Module D — Weighted alternative rerouting
+   §11 Trip planner UI
+   §12 Sidebar weather panel
+   §13 App initialisation
+   ════════════════════════════════════════════════════════════════════════════ */
+
+'use strict';
+
+/* ────────────────────────────────────────────────────────────────────────────
+   §1  CONSTANTS & WMO WEATHER CODE TABLE
+   ──────────────────────────────────────────────────────────────────────────── */
+
+const WMO = {
+  0: {v:"Quang đãng",       e:"☀️", s:0},
+  1: {v:"Chủ yếu quang",    e:"🌤️",s:0},
+  2: {v:"Có mây từng phần", e:"⛅", s:1},
+  3: {v:"Nhiều mây",        e:"☁️", s:1},
+  45:{v:"Sương mù",         e:"🌫️",s:2},
+  48:{v:"Sương mù dày",     e:"🌫️",s:3},
+  51:{v:"Mưa phùn nhẹ",     e:"🌦️",s:1},
+  53:{v:"Mưa phùn vừa",     e:"🌦️",s:2},
+  55:{v:"Mưa phùn nặng",    e:"🌧️",s:3},
+  61:{v:"Mưa nhẹ",          e:"🌧️",s:2},
+  63:{v:"Mưa vừa",          e:"🌧️",s:3},
+  65:{v:"Mưa to",           e:"🌧️",s:4},
+  71:{v:"Tuyết nhẹ",        e:"🌨️",s:2},
+  73:{v:"Tuyết vừa",        e:"❄️", s:3},
+  75:{v:"Tuyết dày",        e:"❄️", s:4},
+  77:{v:"Hạt tuyết",        e:"🌨️",s:2},
+  80:{v:"Mưa rào nhẹ",      e:"🌦️",s:2},
+  81:{v:"Mưa rào vừa",      e:"🌧️",s:3},
+  82:{v:"Mưa rào mạnh",     e:"🌧️",s:4},
+  85:{v:"Mưa tuyết nhẹ",    e:"🌨️",s:3},
+  86:{v:"Mưa tuyết nặng",   e:"❄️", s:4},
+  95:{v:"Dông bão",         e:"⛈️", s:5},
+  96:{v:"Dông + mưa đá",    e:"⛈️", s:5},
+  99:{v:"Dông cực mạnh",    e:"⛈️", s:5},
+};
+function wmo(code){ return WMO[code] || WMO[3]; }
+const SEVERE = new Set([65,75,82,86,95,96,99]);
+const W_PENALTY = [0, 3, 10, 22, 45, 90];
+const SEV_COLORS = ['var(--jade)','#84cc16','#eab308','#f97316','#ef4444','#8b5cf6'];
+
+/* ────────────────────────────────────────────────────────────────────────────
+   §2  UTILITY FUNCTIONS  (all O(N) unless noted)
+   ──────────────────────────────────────────────────────────────────────────── */
+
+function extractWaypoints(coords, n=8){
+  if(!coords||!coords.length) return [];
+  if(coords.length<=n) return coords.map(c=>({lat:c[1],lon:c[0]}));
+  const step = (coords.length-1)/(n-1);
+  const pts = [];
+  for(let i=0;i<n;i++){
+    const c = coords[Math.min(Math.round(i*step), coords.length-1)];
+    pts.push({lat:c[1], lon:c[0]});
+  }
+  return pts;
+}
+
+function hourIdx(times, dateStr, hour){
+  if(!times||!times.length) return hour;
+  const target = `${dateStr}T${String(hour).padStart(2,'0')}:00`;
+  const i = times.findIndex(t => t === target);
+  return i>=0 ? i : Math.min(hour, times.length-1);
+}
+
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+
+function addDays(dateStr,n){
+  const d = new Date(dateStr+'T12:00:00'); d.setDate(d.getDate()+n);
+  return d.toISOString().slice(0,10);
+}
+
+function fmtDate(dateStr,opts){
+  try{
+    return new Date(dateStr+'T12:00:00')
+      .toLocaleDateString('vi-VN', opts||{day:'2-digit',month:'2-digit'});
+  }catch(e){ return dateStr; }
+}
+
+function dayVN(dateStr){
+  return ['CN','T2','T3','T4','T5','T6','T7'][new Date(dateStr+'T12:00:00').getDay()];
+}
+
+function calcRouteWeight(distKm, weatherArr, hIdxArr){
+  const RISK = 1.5;
+  let pen = 0;
+  weatherArr.forEach((wd,i)=>{
+    if(!wd||!wd.hourly) return;
+    const hi   = hIdxArr[i]||0;
+    const code = wd.hourly.weathercode?.[hi]||0;
+    const rain = wd.hourly.precipitation_probability?.[hi]||0;
+    const temp = wd.hourly.temperature_2m?.[hi]||26;
+    const wind = wd.hourly.windspeed_10m?.[hi]||0;
+    const sev  = wmo(code).s;
+    pen += W_PENALTY[sev] * (1 + rain/100);
+    if(temp>=35) pen += 25;
+    if(wind>70)  pen += 20;
+    else if(wind>45) pen += 8;
+  });
+  return distKm + pen*RISK;
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   §3  OPEN-METEO WEATHER API
+   ──────────────────────────────────────────────────────────────────────────── */
+const _wxCache = new Map();
+
+async function fetchWeather(lat, lon){
+  const key = `${lat.toFixed(3)},${lon.toFixed(3)}`;
+  if(_wxCache.has(key)) return _wxCache.get(key);
+
+  try{
+    const raw = sessionStorage.getItem('wx_'+key);
+    if(raw){
+      const c = JSON.parse(raw);
+      if(Date.now()-c._ts < 3_600_000){ _wxCache.set(key,c); return c; }
+    }
+  }catch(_){}
+
+  const url = [
+    'https://api.open-meteo.com/v1/forecast',
+    `?latitude=${lat.toFixed(5)}&longitude=${lon.toFixed(5)}`,
+    '&hourly=temperature_2m,apparent_temperature,precipitation_probability,',
+    'weathercode,windspeed_10m,precipitation',
+    '&daily=weathercode,temperature_2m_max,temperature_2m_min,',
+    'precipitation_probability_max,windspeed_10m_max,sunrise,sunset',
+    '&forecast_days=8&timezone=Asia%2FBangkok',
+  ].join('');
+
+  const r = await fetch(url);
+  if(!r.ok) throw new Error(`Open-Meteo ${r.status}`);
+  const data = await r.json();
+  data._ts = Date.now();
+  _wxCache.set(key, data);
+  try{ sessionStorage.setItem('wx_'+key, JSON.stringify(data)); }catch(_){}
+  return data;
+}
+
+function getDays(wx){
+  if(!wx||!wx.daily||!wx.daily.time) return [];
+  const d = wx.daily;
+  return d.time.map((date,i)=>({
+    date,
+    code: d.weathercode?.[i]||0,
+    hi:   d.temperature_2m_max?.[i]||28,
+    lo:   d.temperature_2m_min?.[i]||22,
+    rain: d.precipitation_probability_max?.[i]||0,
+    wind: d.windspeed_10m_max?.[i]||0,
+  }));
+}
+
+function getHourlySlice(wx, dateStr){
+  if(!wx||!wx.hourly||!wx.hourly.time) return null;
+  const h = wx.hourly;
+  const out = {labels:[],temp:[],rain:[],wind:[],code:[]};
+  for(let i=0;i<h.time.length;i++){
+    if(h.time[i].startsWith(dateStr)){
+      out.labels.push(h.time[i].slice(11,16));
+      out.temp.push(h.temperature_2m?.[i]??null);
+      out.rain.push(h.precipitation_probability?.[i]??0);
+      out.wind.push(h.windspeed_10m?.[i]??0);
+      out.code.push(h.weathercode?.[i]??0);
+    }
+  }
+  return out.labels.length ? out : null;
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   §4  OSRM ROUTING API
+   ──────────────────────────────────────────────────────────────────────────── */
+async function fetchOSRM(coordsList){
+  const pts = coordsList.map(c=>`${c.lon},${c.lat}`).join(';');
+  const url = `https://router.project-osrm.org/route/v1/driving/${pts}?overview=full&geometries=geojson`;
+  const r = await fetch(url);
+  if(!r.ok) throw new Error(`OSRM ${r.status}`);
+  const d = await r.json();
+  if(d.code!=='Ok') throw new Error(`OSRM: Không tìm được tuyến đường`);
+  const rt = d.routes[0];
+  return {
+    geometry: rt.geometry.coordinates,
+    dist:     rt.distance/1000,
+    dur:      rt.duration/60,
+  };
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   §5  NOMINATIM GEOCODING
+   ──────────────────────────────────────────────────────────────────────────── */
+const _geoCache = new Map();
+
+async function geocode(query){
+  const key = query.trim().toLowerCase();
+  if(_geoCache.has(key)) return _geoCache.get(key);
+
+  for(const [name, coords] of Object.entries(VN_PROVINCES)){
+    if(normStr(name).includes(normStr(query)) || normStr(query).includes(normStr(name))){
+      const r = {lat:coords.lat, lon:coords.lon, name};
+      _geoCache.set(key,r); return r;
+    }
+  }
+  for(const [name, coords] of Object.entries(VN_SPOTS)){
+    if(normStr(name).includes(normStr(query)) || normStr(query).includes(normStr(name))){
+      const r = {lat:coords.lat, lon:coords.lon, name};
+      _geoCache.set(key,r); return r;
+    }
+  }
+
+  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query+', Vietnam')}&format=json&limit=1&accept-language=vi`;
+  const r = await fetch(url, {headers:{'User-Agent':'SmartRoute-VN/1.0'}});
+  const data = await r.json();
+  if(!data.length) throw new Error(`Không tìm thấy địa điểm: "${query}"`);
+  const res = {lat:+data[0].lat, lon:+data[0].lon, name:data[0].display_name.split(',')[0]};
+  _geoCache.set(key,res);
+  return res;
+}
+
+function normStr(s){
+  return (s||'').normalize('NFD')
+    .replace(/[\u0300-\u036f]/g,'')
+    .replace(/[đĐ]/g,c=>c==='đ'?'d':'D')
+    .toLowerCase().replace(/\s+/g,' ').trim();
+}
+
+/* ── VIETNAM PROVINCE COORDINATES ── */
+const VN_PROVINCES = {
+  "An Giang":            {lat:10.5216,lon:105.1259},
+  "Bà Rịa - Vũng Tàu":  {lat:10.5417,lon:107.2429},
+  "Bắc Giang":           {lat:21.2731,lon:106.1946},
+  "Bắc Kạn":             {lat:22.1436,lon:105.8348},
+  "Bạc Liêu":            {lat: 9.2840,lon:105.7243},
+  "Bắc Ninh":            {lat:21.1214,lon:106.1111},
+  "Bến Tre":             {lat:10.2433,lon:106.3756},
+  "Bình Định":           {lat:13.7765,lon:109.2237},
+  "Bình Dương":          {lat:11.1667,lon:106.6667},
+  "Bình Phước":          {lat:11.7511,lon:106.9235},
+  "Bình Thuận":          {lat:11.0904,lon:108.0721},
+  "Cà Mau":              {lat: 9.1527,lon:105.1960},
+  "Cần Thơ":             {lat:10.0452,lon:105.7469},
+  "Cao Bằng":            {lat:22.6657,lon:106.2522},
+  "Đà Nẵng":             {lat:16.0544,lon:108.2022},
+  "Đắk Lắk":            {lat:12.7100,lon:108.2378},
+  "Đắk Nông":            {lat:12.0048,lon:107.6877},
+  "Điện Biên":           {lat:21.3860,lon:103.0230},
+  "Đồng Nai":            {lat:11.0686,lon:107.1676},
+  "Đồng Tháp":           {lat:10.4939,lon:105.6882},
+  "Gia Lai":             {lat:13.9717,lon:108.4420},
+  "Hà Giang":            {lat:22.8026,lon:104.9784},
+  "Hà Nam":              {lat:20.5835,lon:105.9229},
+  "Hà Nội":              {lat:21.0285,lon:105.8542},
+  "Hà Tĩnh":             {lat:18.3559,lon:105.8877},
+  "Hải Dương":           {lat:20.9373,lon:106.3147},
+  "Hải Phòng":           {lat:20.8449,lon:106.6881},
+  "Hậu Giang":           {lat: 9.7579,lon:105.6413},
+  "Hòa Bình":            {lat:20.8133,lon:105.3383},
+  "Hưng Yên":            {lat:20.6462,lon:106.0513},
+  "Khánh Hòa":           {lat:12.2388,lon:109.1967},
+  "Kiên Giang":          {lat:10.0125,lon:105.0809},
+  "Kon Tum":             {lat:14.3497,lon:108.0005},
+  "Lai Châu":            {lat:22.3964,lon:103.4592},
+  "Lâm Đồng":            {lat:11.9465,lon:108.4419},
+  "Lạng Sơn":            {lat:21.8537,lon:106.7615},
+  "Lào Cai":             {lat:22.4809,lon:103.9754},
+  "Long An":             {lat:10.5353,lon:106.4071},
+  "Nam Định":            {lat:20.4338,lon:106.1621},
+  "Nghệ An":             {lat:19.2342,lon:104.9200},
+  "Ninh Bình":           {lat:20.2506,lon:105.9745},
+  "Ninh Thuận":          {lat:11.5654,lon:108.9886},
+  "Phú Thọ":             {lat:21.4177,lon:105.2272},
+  "Phú Yên":             {lat:13.0882,lon:109.0928},
+  "Quảng Bình":          {lat:17.4889,lon:106.5986},
+  "Quảng Nam":           {lat:15.5394,lon:108.0191},
+  "Quảng Ngãi":          {lat:15.1214,lon:108.8092},
+  "Quảng Ninh":          {lat:21.0064,lon:107.2925},
+  "Quảng Trị":           {lat:16.7527,lon:107.1874},
+  "Sóc Trăng":           {lat: 9.6003,lon:105.9800},
+  "Sơn La":              {lat:21.3256,lon:103.9188},
+  "Tây Ninh":            {lat:11.3351,lon:106.1098},
+  "Thái Bình":           {lat:20.4470,lon:106.3422},
+  "Thái Nguyên":         {lat:21.5942,lon:105.8412},
+  "Thanh Hóa":           {lat:19.8067,lon:105.7851},
+  "Thừa Thiên Huế":      {lat:16.4674,lon:107.5905},
+  "Tiền Giang":          {lat:10.4493,lon:106.3421},
+  "TP. Hồ Chí Minh":     {lat:10.8231,lon:106.6297},
+  "Trà Vinh":            {lat: 9.9477,lon:106.3420},
+  "Tuyên Quang":         {lat:21.7767,lon:105.2280},
+  "Vĩnh Long":           {lat:10.2538,lon:105.9722},
+  "Vĩnh Phúc":           {lat:21.3089,lon:105.6047},
+  "Yên Bái":             {lat:21.7051,lon:104.9054},
+};
+
+const VN_SPOTS = {
+  "Hội An":         {lat:15.8800,lon:108.3380},
+  "Phú Quốc":       {lat:10.2899,lon:103.9840},
+  "Sa Pa":          {lat:22.3364,lon:103.8440},
+  "Vũng Tàu":       {lat:10.3460,lon:107.0843},
+  "Nha Trang":      {lat:12.2388,lon:109.1967},
+  "Đà Lạt":         {lat:11.9404,lon:108.4583},
+  "Mũi Né":         {lat:10.9333,lon:108.2833},
+  "Huế":            {lat:16.4674,lon:107.5905},
+  "Vịnh Hạ Long":   {lat:20.9517,lon:107.0852},
+  "Tam Cốc":        {lat:20.2278,lon:105.9462},
+};
+
+/* ────────────────────────────────────────────────────────────────────────────
+   §6  MAP INITIALISATION & GEOJSON PROVINCE LAYER
+   ──────────────────────────────────────────────────────────────────────────── */
+let map, geoLayer;
+let selProv = null;
+
+function initMap(){
+  map = L.map('map', {center:[16.2,107.8], zoom:6, zoomControl:true});
+  L.tileLayer(
+    'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+    {attribution:'© OpenStreetMap © CARTO', subdomains:'abcd', maxZoom:19}
+  ).addTo(map);
+
+  loadProvinceGeoJSON();
+}
+
+async function loadProvinceGeoJSON(){
+  showLoader('Đang tải bản đồ Việt Nam…');
+  
+  // FIXED: Sử dụng nguồn dữ liệu mở TungTh thay thế link cũ bị hỏng
+  const SOURCES = [
+    'https://raw.githubusercontent.com/TungTh/tungth.github.io/master/data/vn-provinces.json'
+  ];
+
+  let data = null;
+  for(const url of SOURCES){
+    try{
+      const r = await fetch(url);
+      if(r.ok){ data = await r.json(); break; }
+    }catch(e){ console.warn('[GeoJSON]', url, e.message); }
+  }
+
+  hideLoader();
+
+  if(data){
+    buildGeoLayer(data);
+  } else {
+    addFallbackMarkers();
+    showToast('⚠️ Dùng chế độ marker (không tải được GeoJSON)', 'warn');
+  }
+}
+
+function buildGeoLayer(data){
+  geoLayer = L.geoJSON(data, {
+    style: ()=>({
+      fillColor:'var(--jade)', fillOpacity:.05,
+      color:'var(--brd2)', weight:1.2, opacity:.9,
+    }),
+    onEachFeature(feat, layer){
+      const p = feat.properties;
+      const raw = p.Name||p.Name_1||p.NAME_1||p.name||p.NAME||p.ten_tinh||p.province||p.VARNAME_1||'';
+      const vn  = matchProv(raw) || raw;
+      layer._vn = vn;
+
+      layer.bindTooltip(vn||'?', {sticky:true, direction:'top',
+        offset:[0,-4], className:'leaflet-tooltip'});
+
+      layer.on({
+        mouseover(e){
+          if(layer._vn!==selProv)
+            e.target.setStyle({fillOpacity:.15,fillColor:'var(--jade)',weight:1.5,color:'var(--jade)'});
+        },
+        mouseout(e){
+          if(layer._vn!==selProv) geoLayer.resetStyle(e.target);
+        },
+        click(){ onProvClick(vn, {lat:feat.properties.lat, lon:feat.properties.lon}); },
+      });
+    },
+  }).addTo(map);
+}
+
+function addFallbackMarkers(){
+  Object.entries(VN_PROVINCES).forEach(([name,c])=>{
+    L.circleMarker([c.lat,c.lon],{
+      radius:5,fillColor:'var(--jade)',fillOpacity:.65,color:'var(--jade)',weight:1.2
+    }).addTo(map)
+      .bindTooltip(name,{className:'leaflet-tooltip',sticky:true})
+      .on('click',()=>onProvClick(name,null));
+  });
+}
+
+function matchProv(raw){
+  if(!raw) return null;
+  const n = normStr(raw);
+  for(const [vn] of Object.entries(VN_PROVINCES)){
+    const nv = normStr(vn);
+    if(nv===n || nv.includes(n) || n.includes(nv)) return vn;
+  }
+  const nw = n.split(' ').filter(w=>w.length>2);
+  for(const [vn] of Object.entries(VN_PROVINCES)){
+    const vw = normStr(vn).split(' ').filter(w=>w.length>2);
+    if(nw.filter(w=>vw.includes(w)).length>=2) return vn;
+  }
+  return null;
+}
+
+function setProvStyle(name, active){
+  if(!geoLayer) return;
+  geoLayer.eachLayer(l=>{
+    if(l._vn!==name) return;
+    if(active) l.setStyle({fillColor:'var(--jade)',fillOpacity:.2,color:'var(--jade)',weight:1.8});
+    else        geoLayer.resetStyle(l);
+  });
+}
+
+async function onProvClick(name, coordsOverride){
+  if(currentTab==='planner') return;
+  const coords = VN_PROVINCES[name] || coordsOverride;
+  if(!coords || !coords.lat) return;
+
+  if(selProv && selProv!==name) setProvStyle(selProv,false);
+  selProv = name;
+  setProvStyle(name,true);
+
+  showSidebarWeather(name, coords);
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   §7  MODULE A — API CHAINING: Route → Waypoints → Weather
+   ──────────────────────────────────────────────────────────────────────────── */
+
+let state = {
+  route:      null,
+  waypoints:  [],
+  weather:    [],
+  hIdxArr:    [],
+  altRoute:   null,
+  altWps:     [],
+  altWeather: [],
+  altHIdxArr: [],
+  selectedHour: 8,
+  departDate: todayStr(),
+  viewAlt:    false,
+};
+
+let routeLayer   = null;
+let altRouteLayer= null;
+let markersList  = [];
+
+async function planRoute(fromStr, toStr, hour, departDate){
+  state.selectedHour = hour;
+  state.departDate   = departDate;
+
+  showLoader('Geocoding địa điểm…');
+  const [startC, endC] = await Promise.all([geocode(fromStr), geocode(toStr)]);
+
+  showLoader('Đang tìm tuyến đường…');
+  const rt = await fetchOSRM([startC, endC]);
+  const wps = extractWaypoints(rt.geometry, 8);
+
+  showLoader(`Đang tải thời tiết cho ${wps.length} điểm…`);
+  const wData = await Promise.all(wps.map(w => fetchWeather(w.lat, w.lon)));
+  const hArr = wData.map(w => hourIdx(w?.hourly?.time, departDate, hour));
+
+  state.route    = rt;
+  state.waypoints= wps;
+  state.weather  = wData;
+  state.hIdxArr  = hArr;
+  state.viewAlt  = false;
+
+  drawRoutePolyline(rt, false);
+  drawWaypointMarkers(wps, wData, hArr, false);
+
+  document.getElementById('welcome')?.classList.add('hidden');
+  showTimeBar();
+  hideLoader();
+
+  const alerts = detectAnomalies(wData, wps, hArr);
+  renderAlerts(alerts);
+
+  let altBuilt = false;
+  if(alerts.some(a=>a.type==='danger')){
+    try{
+      showLoader('⚡ Tính tuyến đường an toàn hơn…');
+      await buildAlternativeRoute(startC, endC, wps, wData, hArr, departDate, hour);
+      altBuilt = true;
+    }catch(e){
+      console.warn('[AltRoute]', e.message);
+    }
+    hideLoader();
+  }
+  return { rt, wps, wData, hArr, alerts, altBuilt };
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   §8  MODULE B — TIME SLIDER
+   ──────────────────────────────────────────────────────────────────────────── */
+
+function showTimeBar(){
+  const tb = document.getElementById('time-bar');
+  tb.classList.add('visible');
+  const tick = document.getElementById('tb-tick');
+  tick.innerHTML = [0,3,6,9,12,15,18,21,23]
+    .map(h=>`<span>${String(h).padStart(2,'0')}</span>`).join('');
+}
+
+document.getElementById('hour-slider').addEventListener('input', function(){
+  const hr = +this.value;
+  state.selectedHour = hr;
+  
+  this.style.background =
+    `linear-gradient(to right,var(--jade) ${(hr/23)*100}%,var(--brd2) ${(hr/23)*100}%)`;
+
+  document.getElementById('tb-val').textContent = `${String(hr).padStart(2,'0')}:00`;
+
+  if(!state.waypoints.length) return;
+
+  const hArr = state.weather.map(w=>hourIdx(w?.hourly?.time, state.departDate, hr));
+  state.hIdxArr = hArr;
+
+  if(state.viewAlt && state.altWps.length){
+    const aArr = state.altWeather.map(w=>hourIdx(w?.hourly?.time, state.departDate, hr));
+    state.altHIdxArr = aArr;
+    drawWaypointMarkers(state.altWps, state.altWeather, aArr, true);
+  } else {
+    drawWaypointMarkers(state.waypoints, state.weather, hArr, false);
+  }
+
+  updateSliderWx(state.weather, hArr);
+});
+
+function updateSliderWx(wData, hArr){
+  let worst=null, worstSev=-1;
+  wData.forEach((wd,i)=>{
+    if(!wd?.hourly) return;
+    const hi   = hArr[i]||0;
+    const code = wd.hourly.weathercode?.[hi]||0;
+    const info = wmo(code);
+    if(info.s>worstSev){ worstSev=info.s; worst=info; }
+  });
+  const el = document.getElementById('tb-wx');
+  if(worst) el.innerHTML = `<div class="icon" style="font-size:20px">${worst.e}</div><div class="cond" style="font-size:11px;font-weight:600;color:${SEV_COLORS[worst.s]}">${worst.v}</div>`;
+
+  const mw = state.route ? calcRouteWeight(state.route.dist, state.weather, hArr) : null;
+  const aw = state.altRoute ? calcRouteWeight(state.altRoute.dist, state.altWeather, state.altHIdxArr) : null;
+  const st = document.getElementById('tb-status');
+  st.innerHTML = [
+    `WP: <span style="color:var(--jade)">${state.waypoints.length}</span>`,
+    `Ngày: <span style="color:#8b5cf6">${state.departDate}</span>`,
+    mw!=null ? `W: <span style="color:${mw>250?'var(--danger)':'var(--ok)'}">${mw.toFixed(0)}</span>` : '',
+    aw!=null ? `W-Alt: <span style="color:${aw<mw?'var(--ok)':'var(--gold)'}">${aw.toFixed(0)}</span>` : '',
+  ].filter(Boolean).join('  ·  ');
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   §9  MODULE C — ANOMALY DETECTION
+   ──────────────────────────────────────────────────────────────────────────── */
+
+function detectAnomalies(wData, wps, hArr){
+  const alerts = [];
+  wData.forEach((wd,i)=>{
+    if(!wd?.hourly) return;
+    const hi   = hArr[i]||0;
+    const code = wd.hourly.weathercode?.[hi]||0;
+    const rain = wd.hourly.precipitation_probability?.[hi]||0;
+    const temp = wd.hourly.temperature_2m?.[hi]||26;
+    const wind = wd.hourly.windspeed_10m?.[hi]||0;
+    const lbl  = i===0?'Xuất phát': i===wps.length-1?'Điểm đến':`Điểm ${i}`;
+    const info = wmo(code);
+
+    if(SEVERE.has(code))
+      alerts.push({id:`s${i}${code}`, type:'danger',
+        msg:`${info.e} ${info.v} tại ${lbl}`, wpIdx:i});
+
+    if(rain>70 && !SEVERE.has(code))
+      alerts.push({id:`r${i}`, type:'warn',
+        msg:`💧 Xác suất mưa ${rain}% tại ${lbl}`, wpIdx:i});
+
+    if(temp>=35)
+      alerts.push({id:`t${i}`, type:'warn',
+        msg:`🌡️ Nhiệt độ cực cao ${temp.toFixed(0)}°C tại ${lbl}`, wpIdx:i});
+
+    if(wind>60)
+      alerts.push({id:`w${i}`, type:'warn',
+        msg:`💨 Gió mạnh ${wind} km/h tại ${lbl}`, wpIdx:i});
+  });
+  return alerts;
+}
+
+function renderAlerts(alerts){
+  const el = document.getElementById('alert-list');
+  if(!el) return;
+  if(!alerts.length){ el.innerHTML=''; return; }
+  el.innerHTML = alerts.map(a=>`
+    <div class="alert-item ${a.type==='danger'?'danger':'warn'}" id="al-${a.id}">
+      <span style="flex:1">${a.msg}</span>
+      <button class="alert-dismiss" onclick="document.getElementById('al-${a.id}').remove()">✕</button>
+    </div>`).join('');
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   §10 MODULE D — WEIGHTED ALTERNATIVE REROUTING
+   ──────────────────────────────────────────────────────────────────────────── */
+
+async function buildAlternativeRoute(startC, endC, wps, wData, hArr, date, hour){
+  let worstI=0, worstSev=-1;
+  wData.forEach((wd,i)=>{
+    if(!wd?.hourly) return;
+    const hi   = hArr[i]||0;
+    const code = wd.hourly.weathercode?.[hi]||0;
+    const sev  = wmo(code).s;
+    if(sev>worstSev){ worstSev=sev; worstI=i; }
+  });
+
+  const dLat = (endC.lat - startC.lat) * 0.2;
+  const dLon = (endC.lon - startC.lon) * 0.2;
+  const badWp = wps[worstI];
+  const via = { lat: badWp.lat + dLon, lon: badWp.lon - dLat };
+
+  const altRt   = await fetchOSRM([startC, via, endC]);
+  const altWps  = extractWaypoints(altRt.geometry, 8);
+  const altWDat = await Promise.all(altWps.map(w=>fetchWeather(w.lat,w.lon)));
+  const altHArr = altWDat.map(w=>hourIdx(w?.hourly?.time, date, hour));
+
+  state.altRoute   = altRt;
+  state.altWps     = altWps;
+  state.altWeather = altWDat;
+  state.altHIdxArr = altHArr;
+
+  drawRoutePolyline(altRt, true);
+}
+
+function toggleAlt(){
+  state.viewAlt = !state.viewAlt;
+  const btn = document.getElementById('btn-alt');
+  if(state.viewAlt){
+    drawWaypointMarkers(state.altWps, state.altWeather, state.altHIdxArr, true);
+    if(btn) btn.textContent = '👁️ Đang xem tuyến đường An Toàn';
+  } else {
+    drawWaypointMarkers(state.waypoints, state.weather, state.hIdxArr, false);
+    if(btn) btn.textContent = '🔀 Xem tuyến đường An Toàn';
+  }
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   MAP DRAW HELPERS
+   ──────────────────────────────────────────────────────────────────────────── */
+
+function drawRoutePolyline(rt, isAlt){
+  const ref = isAlt ? altRouteLayer : routeLayer;
+  if(ref) map.removeLayer(ref);
+
+  const latlngs = rt.geometry.map(c=>[c[1],c[0]]);
+  const poly = L.polyline(latlngs, {
+    color:     isAlt ? '#f0a730' : 'var(--jade)',
+    weight:    isAlt ? 3 : 5,
+    opacity:   isAlt ? 0.65 : 0.9,
+    dashArray: isAlt ? '10,7' : null,
+  }).addTo(map);
+
+  if(isAlt) altRouteLayer = poly;
+  else {
+    routeLayer = poly;
+    map.fitBounds(poly.getBounds(), {padding:[50,50]});
+  }
+}
+
+function drawWaypointMarkers(wps, wData, hArr, isAlt){
+  markersList.forEach(m=>map.removeLayer(m));
+  markersList = [];
+
+  wps.forEach((wp,i)=>{
+    const wd = wData[i];
+    if(!wd?.hourly) return;
+
+    const hi   = hArr[i]||0;
+    const code = wd.hourly.weathercode?.[hi]||0;
+    const temp = wd.hourly.temperature_2m?.[hi];
+    const rain = wd.hourly.precipitation_probability?.[hi]||0;
+    const wind = wd.hourly.windspeed_10m?.[hi]||0;
+    const info = wmo(code);
+
+    const isStart = i===0, isEnd = i===wps.length-1;
+    const bg = isAlt&&!isStart&&!isEnd ? '#f0a730'
+              : isStart ? 'var(--jade)'
+              : isEnd   ? '#8b5cf6'
+              : SEV_COLORS[info.s];
+    const inner = isStart?'🚀': isEnd?'🏁': info.e;
+
+    const html = `<div style="
+      width:40px;height:40px;border-radius:50%;
+      background:${bg};border:2px solid var(--bg2);
+      display:flex;align-items:center;justify-content:center;
+      font-size:16px;box-shadow:0 0 12px ${bg}99;
+      cursor:pointer;">${inner}</div>`;
+
+    const icon = L.divIcon({html, className:'', iconSize:[40,40], iconAnchor:[20,20]});
+
+    const popup = `
+      <div style="font-family:'Rajdhani',sans-serif;min-width:165px;font-size:13px">
+        <b style="color:${bg}">${isStart?'🚀 Xuất phát': isEnd?'🏁 Điểm đến':`${isAlt?'Alt ':''}Điểm ${i}`}</b><br>
+        <span style="font-size:22px">${info.e}</span>
+        <b style="color:var(--txt)"> ${info.v}</b><br>
+        <span style="color:var(--dim)">Nhiệt độ:</span>
+        <span style="color:var(--gold);font-family:'JetBrains Mono',monospace"> ${temp!=null?temp.toFixed(1):'--'}°C</span><br>
+        <span style="color:var(--dim)">Xác suất mưa:</span>
+        <span style="color:var(--sky);font-family:'JetBrains Mono',monospace"> ${rain}%</span><br>
+        <span style="color:var(--dim)">Gió:</span>
+        <span style="color:#a78bfa;font-family:'JetBrains Mono',monospace"> ${wind} km/h</span><br>
+        <span style="color:var(--dim)">Mức độ:</span>
+        <span style="color:${SEV_COLORS[info.s]};font-family:'JetBrains Mono',monospace"> ${info.s}/5</span>
+      </div>`;
+
+    const m = L.marker([wp.lat, wp.lon], {icon})
+      .addTo(map)
+      .bindPopup(popup, {className:''});
+    markersList.push(m);
+  });
+
+  updateSliderWx(wData, hArr);
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   §11 TRIP PLANNER UI
+   ──────────────────────────────────────────────────────────────────────────── */
+let dests = []; 
+let destId = 0;
+
+function initPlanner(){
+  const td = todayStr();
+  const dp = document.getElementById('pl-date');
+  if(dp) { dp.value=td; dp.min=td; dp.max=addDays(td,8); }
+
+  addDest('Đà Nẵng', 2);
+  addDest('Hội An', 3);
+  renderDestList();
+}
+
+function addDest(place='', stayDays=2){
+  dests.push({id: ++destId, place: place||'', stayDays});
+  renderDestList();
+}
+
+function removeDest(id){
+  dests = dests.filter(d=>d.id!==id);
+  renderDestList();
+}
+
+function renderDestList(){
+  const el = document.getElementById('dest-list');
+  const allPlaces = Object.keys({...VN_PROVINCES,...VN_SPOTS}).sort((a,b)=>a.localeCompare(b,'vi'));
+  el.innerHTML = dests.map((d,i)=>`
+    <div class="dest-item">
+      <div class="dest-head">
+        <div class="dest-num">${i+1}</div>
+        <div class="dest-lbl">Điểm đến ${i+1}</div>
+        <button class="dest-del" onclick="removeDest(${d.id})" title="Xóa">✕</button>
+      </div>
+      <div class="form-grp">
+        <label class="form-lbl">Địa điểm</label>
+        <input type="text" class="form-ctrl" value="${d.place}"
+          placeholder="Tên tỉnh / điểm đến"
+          onchange="dests.find(x=>x.id===${d.id}).place=this.value"
+          list="place-list-${d.id}">
+        <datalist id="place-list-${d.id}">
+          ${allPlaces.map(p=>`<option value="${p}">`).join('')}
+        </datalist>
+      </div>
+      <div class="form-grp">
+        <label class="form-lbl">📅 Số ngày lưu trú</label>
+        <input type="number" class="form-ctrl" min="1" max="14" value="${d.stayDays}"
+          onchange="dests.find(x=>x.id===${d.id}).stayDays=+this.value">
+      </div>
+    </div>`).join('');
+}
+
+async function analyzeTrip(){
+  const fromStr  = document.getElementById('pl-from').value.trim();
+  const dateStr  = document.getElementById('pl-date').value;
+  const hour     = +document.getElementById('pl-hour').value;
+  const errEl    = document.getElementById('pl-err');
+  const btn      = document.getElementById('plan-btn');
+
+  errEl.classList.add('hidden');
+
+  if(!fromStr){ showErr('Vui lòng nhập điểm xuất phát'); return; }
+  if(!dateStr){ showErr('Vui lòng chọn ngày khởi hành'); return; }
+  const validDests = dests.filter(d=>d.place.trim());
+  if(!validDests.length){ showErr('Vui lòng thêm ít nhất 1 điểm đến'); return; }
+
+  btn.disabled = true;
+  btn.innerHTML = `<span class="spinner" style="border-top-color:var(--bg)"></span> Đang phân tích…`;
+
+  try {
+    const stops = [fromStr, ...validDests.map(d=>d.place)];
+    const coords = await Promise.all(stops.map(s=>geocode(s)));
+
+    const stopDays = []; 
+    let curDate = dateStr;
+    stopDays.push(curDate); 
+    for(let i=0;i<validDests.length;i++){
+      stopDays.push(curDate);
+      curDate = addDays(curDate, validDests[i].stayDays);
+    }
+
+    const wxAll = await Promise.all(coords.map(c=>fetchWeather(c.lat,c.lon)));
+
+    const mainRt = await fetchOSRM(coords);
+    const mainWps= extractWaypoints(mainRt.geometry, Math.min(8, coords.length*2));
+    const mainWDat= await Promise.all(mainWps.map(w=>fetchWeather(w.lat,w.lon)));
+    const mainHArr= mainWDat.map(w=>hourIdx(w?.hourly?.time, dateStr, hour));
+
+    state.route    = mainRt;
+    state.waypoints= mainWps;
+    state.weather  = mainWDat;
+    state.hIdxArr  = mainHArr;
+    state.departDate=dateStr;
+    state.selectedHour=hour;
+    state.viewAlt  = false;
+
+    drawRoutePolyline(mainRt, false);
+    drawWaypointMarkers(mainWps, mainWDat, mainHArr, false);
+    document.getElementById('welcome')?.classList.add('hidden');
+    showTimeBar();
+
+    const legs = [];
+    for(let i=0; i<coords.length-1; i++){
+      const fromCoord= coords[i];
+      const toCoord  = coords[i+1];
+      const depDate  = stopDays[i];
+      const arrDate  = stopDays[i+1];
+
+      const candidates = [-2,-1,0,1,2].map(d=>addDays(depDate,d));
+
+      const destWx = wxAll[i+1];
+      const destDays= getDays(destWx);
+      const destDayMap= {};
+      destDays.forEach(d=>{ destDayMap[d.date]=d; });
+
+      const origWx   = wxAll[i];
+      const origDays = getDays(origWx);
+      const origDayMap= {};
+      origDays.forEach(d=>{ origDayMap[d.date]=d; });
+
+      const scored = candidates.map(cd=>{
+        const dd = destDayMap[cd];
+        const od = origDayMap[cd];
+        if(!dd||!od) return {date:cd, score:-1};
+        const s = (wmoScore(od.code,od.rain,od.hi,od.wind)*0.6)
+                + (wmoScore(dd.code,dd.rain,dd.hi,dd.wind)*0.4);
+        return {date:cd, score:s, origDay:od, destDay:dd};
+      }).filter(x=>x.score>=0);
+
+      scored.sort((a,b)=>b.score-a.score);
+      const best = scored[0];
+
+      let legRt = null;
+      try{ legRt = await fetchOSRM([fromCoord, toCoord]); }catch(_){}
+
+      legs.push({
+        fromName: stops[i],
+        toName:   stops[i+1],
+        fromCoord, toCoord,
+        scheduled: depDate,
+        best:      best,
+        scored,
+        legRt,
+        destWx,
+        origWx,
+      });
+    }
+
+    const alerts = detectAnomalies(mainWDat, mainWps, mainHArr);
+    renderAlerts(alerts);
+
+    let altBuilt = false;
+    if(alerts.some(a=>a.type==='danger')){
+      try{
+        const s=coords[0], e=coords[coords.length-1];
+        await buildAlternativeRoute(s, e, mainWps, mainWDat, mainHArr, dateStr, hour);
+        altBuilt=true;
+        drawRoutePolyline(state.altRoute, true);
+      }catch(e){ console.warn('[Alt]',e); }
+    }
+
+    renderRouteResult(mainRt, mainWDat, mainHArr, altBuilt, legs, stops);
+
+  } catch(err){
+    showErr(err.message);
+  } finally {
+    btn.disabled=false;
+    btn.innerHTML='🚀 Phân Tích Hành Trình';
+    hideLoader();
+  }
+}
+
+function wmoScore(code, rain, tempMax, wind){
+  const info=wmo(code);
+  let s=100;
+  s -= info.s*13;
+  s -= (rain||0)*0.35;
+  s -= Math.max(0,(tempMax||26)-36)*4;
+  s -= Math.max(0,(wind||0)-40)*0.3;
+  return Math.max(0,Math.min(100,s));
+}
+
+function scoreCol(s){
+  if(s>=80) return 'var(--ok)';
+  if(s>=60) return '#84cc16';
+  if(s>=40) return 'var(--gold)';
+  if(s>=20) return 'var(--warn)';
+  return 'var(--danger)';
+}
+
+function renderRouteResult(rt, wData, hArr, altBuilt, legs, stops){
+  const rr = document.getElementById('route-result');
+  rr.classList.remove('hidden');
+
+  const mw = calcRouteWeight(rt.dist, wData, hArr);
+  const aw = state.altRoute ? calcRouteWeight(state.altRoute.dist, state.altWeather, state.altHIdxArr) : null;
+  const altBetter = aw!=null && aw<mw;
+  const saving = altBetter ? ((mw-aw)/mw*100).toFixed(0) : 0;
+
+  document.getElementById('route-stats').innerHTML = `
+    <div class="stat-row">
+      <div class="stat-cell"><div class="lbl">Tổng quãng đường</div><div class="val" style="color:var(--jade)">${rt.dist.toFixed(1)} km</div></div>
+      <div class="stat-cell"><div class="lbl">Thời gian ước tính</div><div class="val" style="color:#8b5cf6">${Math.round(rt.dur)} phút</div></div>
+      <div class="stat-cell"><div class="lbl">Điểm kiểm tra</div><div class="val" style="color:var(--sky)">${state.waypoints.length}</div></div>
+      <div class="stat-cell"><div class="lbl">Trọng số W</div><div class="val" style="color:${mw>300?'var(--danger)':mw>150?'var(--gold)':'var(--ok)'}">${mw.toFixed(0)}</div></div>
+    </div>`;
+
+  if(aw!=null){
+    document.getElementById('route-cards').innerHTML = `
+      <div class="route-card primary">
+        <div class="rc-head"><span class="rc-label" style="color:var(--jade)">🛣️ Tuyến Chính</span><span class="rc-badge" style="background:var(--jade-g);color:var(--jade)">CHỦ ĐẠO</span></div>
+        <div style="font-size:11px;color:var(--muted)">Khoảng cách: ${rt.dist.toFixed(1)} km · Trọng số W: <b style="color:var(--jade)">${mw.toFixed(0)}</b></div>
+      </div>
+      <div class="route-card alt">
+        <div class="rc-head"><span class="rc-label" style="color:var(--gold)">🔀 Tuyến An Toàn</span><span class="rc-badge" style="background:rgba(240,167,48,.15);color:var(--gold)">${altBetter?'AN TOÀN HƠN':'THAY THẾ'}</span></div>
+        <div style="font-size:11px;color:var(--muted)">Khoảng cách: ${state.altRoute.dist.toFixed(1)} km · Trọng số W: <b style="color:var(--gold)">${aw.toFixed(0)}</b></div>
+        ${altBetter?`<div style="margin-top:6px;font-size:11px;color:var(--ok)">✅ An toàn hơn ${saving}% (thêm ${(state.altRoute.dist-rt.dist).toFixed(1)} km)</div>`:''}
+      </div>`;
+    const btn = document.getElementById('btn-alt');
+    btn.classList.remove('hidden');
+  } else {
+    document.getElementById('route-cards').innerHTML='';
+  }
+
+  if(legs&&legs.length){
+    const legHtml = legs.map((leg,i)=>{
+      const best = leg.best;
+      const sched = leg.scheduled;
+      const isBestSched = best&&best.date===sched;
+      const bestInfo = best&&best.destDay?wmo(best.destDay.code):wmo(0);
+      
+      // FIXED HERE: changed best.scored to leg.scored
+      const schedInfo = leg.scored && leg.scored.find(x=>x.date===sched);
+      const schedScore = schedInfo?schedInfo.score:null;
+      
+      const adviceClass = !best?'bad': best.score>=70?'ok': best.score>=40?'warn':'bad';
+      const adviceTxt = !best?'Không có dữ liệu thời tiết':
+                         best.score>=70?`✅ Thời tiết tốt — có thể khởi hành theo kế hoạch`:
+                         best.score>=40?`⚠️ Thời tiết trung bình — chuẩn bị đồ mưa`:
+                         `🚫 Thời tiết xấu — nên xem xét đổi ngày`;
+
+      const topDays = (leg.scored||[]).slice(0,3);
+
+      return `
+        <div style="background:var(--bg2);border:1px solid var(--brd2);border-radius:11px;padding:13px;margin-bottom:10px;animation:fadeUp .25s ease">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:11px;padding-bottom:10px;border-bottom:1px solid var(--brd)">
+            <div style="width:8px;height:8px;border-radius:50%;background:${i===0?'var(--jade)':i===legs.length-1?'#8b5cf6':'var(--gold)'}"></div>
+            <span style="font-size:13px;font-weight:700;flex:1">${leg.fromName}</span>
+            <span style="color:var(--dim)">→</span>
+            <span style="font-size:13px;font-weight:700">${leg.toName}</span>
+            ${leg.legRt?`<span class="chip chip-sky" style="margin-left:4px">${leg.legRt.dist.toFixed(0)}km</span>`:''}
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:10px">
+            <div style="background:var(--surf);border:1px solid var(--brd);border-radius:8px;padding:9px">
+              <div style="font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px">📅 Kế Hoạch</div>
+              <div style="font-size:15px;font-weight:800;font-family:'JetBrains Mono',monospace">${fmtDate(sched,{day:'2-digit',month:'2-digit'})}</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:3px">${dayVN(sched)} · ${schedScore!=null?Math.round(schedScore)+'/100':'--'}</div>
+            </div>
+            <div style="background:var(--surf);border:1px solid ${best?scoreCol(best.score):isBestSched?'var(--jade)':'var(--brd)'};border-radius:8px;padding:9px">
+              <div style="font-size:9px;color:${best?scoreCol(best.score):'var(--dim)'};text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px">⭐ Ngày Tốt Nhất</div>
+              <div style="font-size:15px;font-weight:800;font-family:'JetBrains Mono',monospace;color:${best?scoreCol(best.score):'var(--dim)'}">${best?fmtDate(best.date,{day:'2-digit',month:'2-digit'}):'--'}</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:3px">${best?dayVN(best.date)+' · '+Math.round(best.score)+'/100':'Không có dữ liệu'}</div>
+            </div>
+          </div>
+
+          ${best&&best.destDay?`
+          <div style="display:flex;gap:10px;align-items:center;background:var(--surf);border:1px solid var(--brd);border-radius:8px;padding:9px;margin-bottom:9px">
+            <span style="font-size:26px">${bestInfo.e}</span>
+            <div>
+              <div style="font-size:12px;font-weight:700">${bestInfo.v}</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:3px">
+                🌡️ ${best.destDay.hi.toFixed(0)}°/${best.destDay.lo.toFixed(0)}° C &nbsp;
+                💧 ${best.destDay.rain}% &nbsp;
+                💨 ${best.destDay.wind} km/h
+              </div>
+            </div>
+            <div style="margin-left:auto;text-align:center">
+              <div style="font-size:22px;font-weight:800;color:${scoreCol(best.score)};font-family:'JetBrains Mono',monospace">${Math.round(best.score)}</div>
+              <div style="font-size:9px;color:var(--dim);text-transform:uppercase">điểm</div>
+            </div>
+          </div>`:''}
+
+          <div class="info-box ${adviceClass}">${adviceTxt}</div>
+
+          ${topDays.length>1?`
+          <div style="font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px">So sánh các ngày</div>
+          ${topDays.map(td=>{
+            const pct = Math.round(td.score);
+            const col = scoreCol(td.score);
+            const wkd = wmo(td.destDay?.code||0);
+            return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+              <span style="font-size:13px;width:20px;text-align:center">${wkd.e}</span>
+              <span style="font-size:11px;color:var(--muted);min-width:72px;font-family:'JetBrains Mono',monospace">${dayVN(td.date)} ${fmtDate(td.date)}</span>
+              <div style="flex:1;height:5px;background:var(--brd);border-radius:3px;overflow:hidden">
+                <div style="height:100%;width:${pct}%;background:${col};border-radius:3px;transition:width .5s ease"></div>
+              </div>
+              <span style="font-size:11px;font-weight:700;color:${col};font-family:'JetBrains Mono',monospace;min-width:32px;text-align:right">${pct}</span>
+            </div>`;
+          }).join('')}`:''}
+        </div>`;
+    }).join('');
+
+    const rc = document.getElementById('route-cards');
+    rc.innerHTML += `<div class="s-lbl" style="margin-top:14px">🧭 Phân Tích Từng Chặng</div>${legHtml}`;
+  }
+
+  showOverlay(stops[0], stops[stops.length-1], rt.dist, rt.dur);
+}
+
+function showErr(msg){
+  const el = document.getElementById('pl-err');
+  el.className = 'err-box';
+  el.innerHTML = `⚠️ ${msg}`;
+  el.classList.remove('hidden');
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   §12 SIDEBAR WEATHER PANEL
+   ──────────────────────────────────────────────────────────────────────────── */
+
+async function showSidebarWeather(name, coords){
+  const hint = document.getElementById('map-hint');
+  const wx   = document.getElementById('map-wx');
+  hint.classList.add('hidden');
+  wx.classList.remove('hidden');
+
+  wx.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;padding-bottom:12px;margin-bottom:12px;border-bottom:1px solid var(--brd)">
+      <div style="width:34px;height:24px;background:var(--red);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">📍</div>
+      <div>
+        <div style="font-size:15px;font-weight:800">${name}</div>
+        <div style="font-size:10px;color:var(--dim);font-family:'JetBrains Mono',monospace">${coords.lat.toFixed(3)}°N · ${coords.lon.toFixed(3)}°E</div>
+      </div>
+    </div>
+    <div class="skel" style="height:90px;margin-bottom:12px"></div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:12px">
+      ${Array(7).fill('<div class="skel" style="height:72px;border-radius:8px"></div>').join('')}
+    </div>`;
+
+  try{
+    const wxData = await fetchWeather(coords.lat, coords.lon);
+    renderSidebarWx(name, coords, wxData);
+  }catch(err){
+    wx.innerHTML += `<div class="err-box">⚠️ ${err.message}</div>`;
+  }
+}
+
+let _sbWx=null, _sbDays=[], _sbSelDay=0;
+
+function renderSidebarWx(name, coords, wxData){
+  _sbWx   = wxData;
+  _sbDays = getDays(wxData);
+  _sbSelDay = 0;
+  if(!_sbDays.length) return;
+
+  const d0   = _sbDays[0];
+  const info = wmo(d0.code);
+  const sc   = wmoScore(d0.code, d0.rain, d0.hi, d0.wind);
+  const scC  = scoreCol(sc);
+
+  const el = document.getElementById('map-wx');
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;padding-bottom:12px;margin-bottom:12px;border-bottom:1px solid var(--brd);animation:fadeIn .25s">
+      <div style="width:34px;height:24px;background:var(--red);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;box-shadow:0 2px 8px rgba(224,48,48,.3)">📍</div>
+      <div style="flex:1">
+        <div style="font-size:15px;font-weight:800">${name}</div>
+        <div style="font-size:10px;color:var(--dim);font-family:'JetBrains Mono',monospace;margin-top:1px">${coords.lat.toFixed(3)}°N · ${coords.lon.toFixed(3)}°E</div>
+      </div>
+    </div>
+
+    <div style="background:linear-gradient(135deg,var(--surf2),var(--surf));border:1px solid var(--brd2);border-radius:12px;padding:14px;margin-bottom:12px;display:flex;gap:12px;align-items:center;animation:fadeUp .25s">
+      <div style="font-size:52px;line-height:1;flex-shrink:0">${info.e}</div>
+      <div style="flex:1">
+        <div style="font-size:38px;font-weight:800;font-family:'JetBrains Mono',monospace;line-height:1">${Math.round(d0.hi)}<span style="font-size:18px;font-weight:400;color:var(--muted)">°C</span></div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">${info.v}</div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:6px">
+          <span style="font-size:10px;color:var(--dim);background:var(--surf3);border:1px solid var(--brd);padding:2px 7px;border-radius:100px">⬇️ ${Math.round(d0.lo)}°C</span>
+          <span style="font-size:10px;color:var(--dim);background:var(--surf3);border:1px solid var(--brd);padding:2px 7px;border-radius:100px">💧 ${d0.rain}%</span>
+          <span style="font-size:10px;color:var(--dim);background:var(--surf3);border:1px solid var(--brd);padding:2px 7px;border-radius:100px">💨 ${d0.wind}km/h</span>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;background:var(--surf3);border:1px solid var(--brd2);border-radius:9px;padding:8px 10px;flex-shrink:0;min-width:56px;text-align:center">
+        <div style="font-size:20px;font-weight:800;color:${scC};font-family:'JetBrains Mono',monospace">${Math.round(sc)}</div>
+        <div style="font-size:8px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em;margin-top:2px">Du lịch</div>
+      </div>
+    </div>
+
+    <div style="font-size:9px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.14em;margin-bottom:7px;display:flex;align-items:center;gap:7px">
+      Dự báo 7 ngày
+      <span style="flex:1;height:1px;background:var(--brd);display:block"></span>
+    </div>
+    <div id="sb-days-strip" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:12px">
+      ${_sbDays.slice(0,7).map((d,i)=>{
+        const di=wmo(d.code);
+        const ds=scoreCol(wmoScore(d.code,d.rain,d.hi,d.wind));
+        return `<div onclick="sbSelectDay(${i})" id="sbd-${i}"
+          style="background:var(--surf);border:1px solid ${i===0?'var(--jade)':'var(--brd)'};
+            border-radius:8px;padding:6px 3px;text-align:center;cursor:pointer;
+            transition:all .15s;position:relative;overflow:hidden;
+            ${i===0?'background:var(--jade-g)':''}">
+          <div style="font-size:8px;font-weight:700;color:var(--dim);text-transform:uppercase">${i===0?'HN':dayVN(d.date)}</div>
+          <div style="font-size:8px;color:var(--dim);margin-bottom:3px">${fmtDate(d.date)}</div>
+          <span style="font-size:17px;display:block;margin:2px 0">${di.e}</span>
+          <div style="font-size:10px;font-weight:700;color:var(--gold);font-family:'JetBrains Mono',monospace">${Math.round(d.hi)}°</div>
+          <div style="font-size:9px;color:var(--dim);font-family:'JetBrains Mono',monospace">${Math.round(d.lo)}°</div>
+          <div style="font-size:8px;color:${d.rain>60?'var(--warn)':'var(--sky)'};margin-top:2px">${d.rain}%</div>
+          ${i===0?`<div style="position:absolute;bottom:0;left:15%;right:15%;height:2px;background:var(--jade);border-radius:1px"></div>`:''}
+        </div>`;
+      }).join('')}
+    </div>
+
+    <div style="font-size:9px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.14em;margin-bottom:7px;display:flex;align-items:center;gap:7px">
+      Theo giờ hôm nay
+      <span style="flex:1;height:1px;background:var(--brd);display:block"></span>
+    </div>
+    <div id="sb-hourly" style="background:var(--surf);border:1px solid var(--brd);border-radius:10px;padding:12px;margin-bottom:10px">
+      <div style="text-align:center;color:var(--dim);font-size:12px;padding:10px 0">Đang tải...</div>
+    </div>`;
+
+  sbRenderHourly(_sbDays[0].date);
+}
+
+function sbSelectDay(idx){
+  _sbSelDay = idx;
+  for(let i=0;i<7;i++){
+    const el = document.getElementById(`sbd-${i}`);
+    if(!el) continue;
+    el.style.border = `1px solid ${i===idx?'var(--jade)':'var(--brd)'}`;
+    el.style.background = i===idx?'var(--jade-g)':'var(--surf)';
+    const bar = el.querySelector('[data-bar]');
+    if(bar) bar.remove();
+    if(i===idx){
+      const b=document.createElement('div');
+      b.setAttribute('data-bar','1');
+      b.style.cssText='position:absolute;bottom:0;left:15%;right:15%;height:2px;background:var(--jade);border-radius:1px';
+      el.appendChild(b);
+    }
+  }
+  const d = _sbDays[idx];
+  if(d) sbRenderHourly(d.date);
+}
+
+function sbRenderHourly(dateStr){
+  const h = getHourlySlice(_sbWx, dateStr);
+  const el = document.getElementById('sb-hourly');
+  if(!el) return;
+  if(!h){ el.innerHTML='<div style="text-align:center;color:var(--dim);padding:10px;font-size:12px">Không có dữ liệu theo giờ</div>'; return; }
+
+  const W=316, H=55, PAD=4;
+  const temps = h.temp.filter(t=>t!=null);
+  const mn = Math.min(...temps)-2, mx = Math.max(...temps)+2;
+  const xS = (W-PAD*2)/(h.labels.length-1||1);
+  const yS = (H-PAD*2)/(mx-mn||1);
+
+  const pts = h.temp.map((t,i)=>`${PAD+i*xS},${H-PAD-(t-mn)*yS}`).join(' ');
+  const apts= h.temp.map((t,i)=>`${PAD+i*xS},${H-PAD-(t-mn)*yS}`).join(' ') + ` ${PAD+(h.temp.length-1)*xS},${H} ${PAD},${H}`;
+
+  const barW = Math.max(2, xS*0.6);
+  const bars = h.rain.map((r,i)=>{
+    const bh = (r/100)*(H-PAD);
+    return `<rect x="${PAD+i*xS-barW/2}" y="${H-bh}" width="${barW}" height="${bh}" fill="rgba(56,178,240,.18)" rx="1"/>`;
+  }).join('');
+
+  const ticks = h.labels.map((lb,i)=>{
+    if(i%3!==0) return '';
+    return `<text x="${PAD+i*xS}" y="${H+12}" text-anchor="middle" fill="var(--muted)" font-size="8" font-family="JetBrains Mono">${lb}</text>`;
+  }).join('');
+
+  el.innerHTML = `
+    <svg width="100%" viewBox="0 0 ${W} ${H+16}" xmlns="http://www.w3.org/2000/svg" style="display:block">
+      ${bars}
+      <polygon points="${apts}" fill="rgba(240,167,48,.08)"/>
+      <polyline points="${pts}" fill="none" stroke="var(--gold)" stroke-width="1.8" stroke-linejoin="round"/>
+      ${h.temp.map((t,i)=>`<circle cx="${PAD+i*xS}" cy="${H-PAD-(t-mn)*yS}" r="2" fill="var(--gold)" opacity="${i%3===0?1:0}"/>`).join('')}
+      ${ticks}
+      <text x="${W}" y="10" text-anchor="end" fill="var(--dim)" font-size="8" font-family="JetBrains Mono">${Math.round(mx)}°</text>
+      <text x="${W}" y="${H-4}" text-anchor="end" fill="var(--dim)" font-size="8" font-family="JetBrains Mono">${Math.round(mn)}°</text>
+    </svg>
+    <div style="display:flex;justify-content:space-between;margin-top:5px;font-size:10px">
+      <span style="color:var(--gold)">🌡️ Nhiệt độ</span>
+      <span style="color:var(--sky)">💧 Mưa</span>
+    </div>`;
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   MISC UI HELPERS
+   ──────────────────────────────────────────────────────────────────────────── */
+
+let currentTab = 'map';
+
+function switchTab(tab){
+  currentTab = tab;
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById(`tab-${tab}`).classList.add('active');
+
+  document.getElementById('sb-map').classList.toggle('hidden', tab!=='map');
+  document.getElementById('sb-planner').classList.toggle('hidden', tab!=='planner');
+
+  if(tab==='map'){
+    if(!selProv) document.getElementById('map-hint').classList.remove('hidden');
+  }
+}
+
+function showLoader(txt){
+  const el = document.getElementById('map-loader');
+  document.getElementById('loader-txt').textContent = txt||'Đang tải…';
+  el.classList.remove('hidden');
+}
+function hideLoader(){
+  document.getElementById('map-loader').classList.add('hidden');
+}
+
+function showOverlay(from, to, dist, dur){
+  const el = document.getElementById('map-overlay');
+  document.getElementById('overlay-content').innerHTML = `
+    <div style="margin-bottom:4px"><b style="color:var(--jade)">${from}</b></div>
+    <div style="color:var(--dim);font-size:10px;margin-bottom:4px">→ ${to}</div>
+    <div style="display:flex;gap:8px">
+      <span style="color:var(--jade);font-family:'JetBrains Mono',monospace">${dist.toFixed(1)}km</span>
+      <span style="color:#8b5cf6;font-family:'JetBrains Mono',monospace">${Math.round(dur)}min</span>
+    </div>`;
+  el.classList.remove('hidden');
+}
+
+function showToast(msg, type='info'){
+  const t = document.createElement('div');
+  t.style.cssText = `position:fixed;bottom:20px;right:20px;z-index:9999;
+    background:${type==='warn'?'rgba(249,115,22,.12)':'var(--surf2)'};
+    border:1px solid ${type==='warn'?'rgba(249,115,22,.4)':'var(--brd2)'};
+    color:${type==='warn'?'#fb923c':'var(--txt)'};
+    padding:10px 16px;border-radius:9px;font-size:12.5px;font-weight:600;
+    font-family:'Rajdhani',sans-serif;animation:fadeUp .3s ease;
+    box-shadow:0 4px 20px rgba(0,0,0,.15);max-width:280px;`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(()=>{ t.style.opacity='0'; t.style.transition='opacity .3s'; setTimeout(()=>t.remove(),300); }, 3000);
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   §13 APP INITIALISATION
+   ──────────────────────────────────────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', ()=>{
+  const td = todayStr();
+  const dp = document.getElementById('pl-date');
+  if(dp){ dp.value=td; dp.min=td; dp.max=addDays(td,8); }
+
+  initPlanner();
+  initMap();
+
+  const ticks = document.getElementById('tb-tick');
+  if(ticks) ticks.innerHTML=[0,3,6,9,12,15,18,21,23]
+    .map(h=>`<span>${String(h).padStart(2,'0')}</span>`).join('');
+
+  const sl = document.getElementById('hour-slider');
+  sl.style.background=`linear-gradient(to right,var(--jade) 34.8%,var(--brd2) 34.8%)`;
+});
+
+window.switchTab    = switchTab;
+window.addDest      = addDest;
+window.removeDest   = removeDest;
+window.analyzeTrip  = analyzeTrip;
+window.toggleAlt    = toggleAlt;
+window.sbSelectDay  = sbSelectDay;
+</script>
+</body>
+</html>
